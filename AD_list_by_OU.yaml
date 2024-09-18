@@ -1,0 +1,43 @@
+id: AD_list_by_OU
+namespace: foo
+description: Lists users from given organizational unit.
+
+inputs:
+  - id: organizational_unit
+    type: ENUM
+    values:
+      - scientists
+      - mathematicians
+    description: The organizational unit to list uses from.
+
+tasks:
+
+  - id: fetch
+    type: io.kestra.plugin.ldap.Search
+    userDn: cn=read-only-admin,dc=example,dc=com
+    password: password
+    baseDn: dc=example,dc=com
+    filter: ou=scientists
+    hostname: ldap.forumsys.com
+    port: "389"
+
+  - id: save
+    type: io.kestra.plugin.scripts.python.Script
+    outputFiles:
+      - "out.txt"
+    script: |
+      import os
+
+      print("Reading")
+      with open('{{ outputs.fetch.uri }}', 'r') as f:
+        fetch_data = f.readlines()
+
+      users = []
+      for line in fetch_data:
+        if line.startswith("uniqueMember: "):
+          users.append("- " + line.split("uniqueMember: ")[1].strip())
+
+      print("Writing")
+      with open("out.txt", "w") as f:
+        f.write(f"{len(users)} users found in '{'{{ inputs.organizational_unit }}'.capitalize()}' organizational unit: \n\n")
+        f.write("\n".join(users))

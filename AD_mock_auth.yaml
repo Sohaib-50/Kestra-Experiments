@@ -1,0 +1,73 @@
+id: AD_mock_auth
+namespace: foo
+description: A mock authentication flow that uses uid as username and ou as password.
+
+inputs:
+  - id: username
+    type: STRING
+    required: true
+
+  - id: password
+    type: STRING
+    required: true
+
+tasks:
+
+  - id: fetch
+    type: io.kestra.plugin.ldap.Search
+    userDn: cn=read-only-admin,dc=example,dc=com
+    password: password
+    baseDn: dc=example,dc=com
+    filter: (objectClass=groupOfUniqueNames)
+    attributes:
+      - uniqueMember
+    hostname: ldap.forumsys.com
+    port: "389"
+
+
+  - id: process
+    type: io.kestra.plugin.scripts.python.Script
+    outputFiles:
+      - "users.txt"
+    script: |
+      from kestra import Kestra
+
+      with open('{{ outputs.fetch.uri }}', 'r') as f:
+        ou_infos = [ou_info.split("\n") for ou_info in f.read().split("\n\n")]
+
+      users = {}
+      for ou_info in ou_infos:
+        ou = ou_info[0].split("ou=")[1].split(",")[0]
+        for line in ou_info[1:]:
+          if "uid=" in line:
+            uid = line.split("uid=")[1].split(",")[0]
+            users[uid] = ou  # store user
+
+      with open("users.txt", "w") as f:
+        f.write("User, password information from AD:\n")
+        for uid, ou in users.items():
+          f.write(f"{uid}, {ou}\n")
+
+      Kestra.outputs({'users': users})
+
+
+  - id: authenticate
+    type: io.kestra.plugin.scripts.python.Script
+    outputFiles:
+      - "auth_status.txt"
+    script: |
+      from kestra import Kestra
+
+      users = {{ outputs.process.vars["users"] }}
+
+      if users.get("{{ inputs.username }}") == "{{ inputs.password }}":
+        auth_status = "Authenticated"
+      else:
+        auth_status = "Not authenticated"
+
+      with open("auth_status.txt", "w") as f:
+        f.write(auth_status)
+        
+      print(f"Authentication status: {auth_status}")
+
+
