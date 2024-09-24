@@ -1,0 +1,30 @@
+id: get_AD_user
+namespace: foo
+
+description: |
+  A flow that fetches user information from Active Directory given username
+
+tasks:
+
+
+  - id: out
+    type: io.kestra.plugin.core.debug.Return
+    format: "{{ trigger.body.parameters.username }}"
+
+
+  - id: fetch_user
+    type: io.kestra.plugin.ldap.Search
+    userDn: cn=read-only-admin,dc=example,dc=com
+    password: password
+    baseDn: dc=example,dc=com
+    
+    # filter using uid or cn
+    # filter: (&(objectClass=inetOrgPerson)(|(uid={{ trigger.body.parameters.username }})(cn=*{{ trigger.body.parameters.username }}*)))
+    filter: (uid={{ outputs.out.value }})
+    hostname: ldap.forumsys.com
+    port: "389"
+
+triggers:
+  - id: webhook_trigger
+    type: io.kestra.plugin.core.trigger.Webhook
+    key: key0

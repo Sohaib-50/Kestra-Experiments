@@ -1,0 +1,81 @@
+id: Gaditek_AD_test_1
+namespace: foo
+description: Fetches all data gettable from the AD
+
+
+variables:
+  password: <redacted>
+
+tasks:
+
+  - id: fetches
+    type: io.kestra.plugin.core.flow.Parallel
+    tasks:
+
+    - id: fetch_computers
+      type: io.kestra.plugin.ldap.Search
+      userDn: cn=Administrator,cn=Users,dc=test,dc=local
+      password: "{{ vars.password }}"
+      baseDn: dc=test,dc=local
+      hostname: 3.123.143.202
+      port: "389"
+      filter: (objectClass=computer)
+
+
+    - id: fetch_users
+      type: io.kestra.plugin.ldap.Search
+      userDn: cn=Administrator,cn=Users,dc=test,dc=local
+      password: "{{ vars.password }}"
+      baseDn: dc=test,dc=local
+      hostname: 3.123.143.202
+      port: "389"
+      filter: (objectClass=user)
+
+
+    - id: fetch_users_details
+      type: io.kestra.plugin.ldap.Search
+      userDn: cn=Administrator,cn=Users,dc=test,dc=local
+      password: "{{ vars.password }}"
+      baseDn: dc=test,dc=local
+      hostname: 3.123.143.202
+      port: "389"
+      filter: (objectClass=user)
+      attributes:
+        - dn
+        - cn
+        - description
+        - lastLogon
+        - lastLogoff
+        - sAMAccountName
+        - userPrincipalName
+        - mail
+        - displayName
+        - distinguishedName
+        - accountExpires
+        - enabled
+        - memberOf
+        - whenCreated
+        - title
+        - department
+        - objectSid
+        - objectGUID
+        - logonCount
+        - badPwdCount
+        - badPasswordTime
+
+
+  - id: save
+    type: io.kestra.plugin.scripts.python.Script
+    outputFiles:
+      - "out.txt"
+    script: |
+      import os
+
+      print("Reading")
+      with open('{{ outputs.fetch_users_details.uri }}', 'r') as f:
+        fetch_data = f.read()
+        
+      print("Writing")
+      with open("out.txt", "w") as f:
+        f.write("Fetched information from AD:\n")
+        f.write(fetch_data)
