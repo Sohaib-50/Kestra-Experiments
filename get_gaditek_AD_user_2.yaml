@@ -1,0 +1,76 @@
+id: get_Gaditek_AD_user_2
+namespace: foo
+
+variables:
+  password: <redacted>
+
+triggers:
+  - id: webhook_trigger
+    type: io.kestra.plugin.core.trigger.Webhook
+    key: key0
+
+tasks:
+
+
+  - id: save
+    type: io.kestra.plugin.scripts.python.Script
+    outputFiles:
+      - "out.txt"
+    beforeCommands:
+      - pip install ldap3 > /dev/null
+    script: |
+      import os
+      from collections import defaultdict
+      import json
+      from ldap3 import Server, Connection, ALL, SUBTREE
+
+      # LDAP server and connection details
+      ldap_server = '3.123.143.202'
+      username = 'your_username'  # Replace with the username to search for
+      password = '{{ vars.password }}'    # Replace with the actual password
+      base_dn = 'dc=test,dc=local'
+
+      # Create the server and connection
+      server = Server(ldap_server, get_info=ALL)
+      conn = Connection(server, user='cn=Administrator,cn=Users,dc=test,dc=local', password=password)
+
+      # Bind the connection
+      if not conn.bind():
+          print(f"Failed to bind to the server: {conn.last_error}")
+      else:
+          search_filter = f"(&(objectClass=user)(sAMAccountName={{trigger.body.username}}))"
+          
+          # Attributes to retrieve
+          attributes = [
+              'cn', 'description', 'lastLogon', 'lastLogoff',
+              'sAMAccountName', 'userPrincipalName', 'mail', 'displayName',
+              'distinguishedName', 'accountExpires', 'enabled', 'memberOf',
+              'whenCreated', 'title', 'department', 'objectSid', 'objectGUID',
+              'logonCount', 'badPwdCount', 'badPasswordTime', 'objectClass'
+          ]
+          
+          # Perform the search
+          conn.search(base_dn, search_filter, SUBTREE, attributes=attributes)
+
+          result = {}
+          for entry in conn.entries:
+              entry_dict = {}
+              for key, value in entry.entry_attributes.items():
+                  entry_dict[key] = value
+              result[entry.entry_dn] = entry_dict
+          
+          # # Prepare the output
+          # result = ""
+          # for entry in conn.entries:
+          #     for attr in entry.entry_attributes:
+          #         result += f"{attr}: {entry[attr]}\n"
+          #     result += "\n"  # Separate entries by a blank line
+
+          # Unbind the connection
+          conn.unbind()
+
+    
+      with open('out.txt', 'a') as f:
+        f.write(str(json.dumps(result, indent=4)))
+      #   f.write("\n\nResult of fetch_hardcoded_user_details task:\n")
+      #   f.write(json.dumps(user_attributes, indent=4))

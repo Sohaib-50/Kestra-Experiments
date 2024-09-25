@@ -1,0 +1,130 @@
+id: get_Gaditek_AD_user
+namespace: foo
+
+variables:
+  password: "<redacted>"
+
+inputs:
+  - id: username
+    type: STRING
+    # defaults: "Administrator"
+    defaults: huzaifa.aslam
+            
+tasks:
+
+  - id: fetch_user_details
+    type: io.kestra.plugin.ldap.Search
+    userDn: cn=Administrator,cn=Users,dc=test,dc=local
+    password: "{{ vars.password }}"
+    baseDn: dc=test,dc=local
+    hostname: 3.123.143.202
+    port: "389"
+    filter: "(&(objectClass=user)(sAMAccountName={{inputs.username}}))"
+    attributes:
+      - dn
+      - cn
+      - description
+      - lastLogon
+      - lastLogoff
+      - sAMAccountName
+      - userPrincipalName
+      - mail
+      - displayName
+      - distinguishedName
+      - accountExpires
+      - enabled
+      - memberOf
+      - whenCreated
+      - title
+      - department
+      - objectSid
+      - objectGUID
+      - logonCount
+      - badPwdCount
+      - badPasswordTime
+      - objectClass
+
+
+  - id: fetch_hardcoded_user_details
+    type: io.kestra.plugin.ldap.Search
+    userDn: cn=Administrator,cn=Users,dc=test,dc=local
+    password: "{{ vars.password }}"
+    baseDn: dc=test,dc=local
+    hostname: 3.123.143.202
+    port: "389"
+    filter: "(&(objectClass=user)(sAMAccountName=huzaifa.aslam))"
+    attributes:
+      - dn
+      - cn
+      - description
+      - lastLogon
+      - lastLogoff
+      - sAMAccountName
+      - userPrincipalName
+      - mail
+      - displayName
+      - distinguishedName
+      - accountExpires
+      - enabled
+      - memberOf
+      - whenCreated
+      - title
+      - department
+      - objectSid
+      - objectGUID
+      - logonCount
+      - badPwdCount
+      - badPasswordTime
+      - objectClass
+
+  - id: save
+    type: io.kestra.plugin.scripts.python.Script
+    outputFiles:
+      - "out.txt"
+    script: |
+      import os
+      from collections import defaultdict
+      import json
+      
+      with open('{{ outputs.fetch_user_details.uri }}', 'r') as f:
+        fetch_data = f.read().strip().split('\n')
+
+      if fetch_data:
+        user_attributes = {}
+        for line in fetch_data:
+          param_end_index = line.index(":")
+          param = line[:param_end_index].strip()
+          val = line[param_end_index + 1:].strip()
+
+          if param not in user_attributes:
+            user_attributes[param] = val
+          else:
+            if isinstance(user_attributes[param], str):
+              user_attributes[param] = [user_attributes[param]]
+            user_attributes[param].append(val)
+            
+      with open('out.txt', 'w') as f:
+        f.write("Result of fetch_user_details task:\n")
+        f.write(json.dumps(user_attributes, indent=4))
+
+
+      with open('{{ outputs.fetch_hardcoded_user_details.uri }}', 'r') as f:
+        fetch_hardcoded_data = f.read().strip().split('\n')
+
+      if fetch_hardcoded_data:
+        user_attributes = {}
+        for line in fetch_hardcoded_data:
+          param_end_index = line.index(":")
+          param = line[:param_end_index].strip()
+          val = line[param_end_index + 1:].strip()
+
+          if param not in user_attributes:
+            user_attributes[param] = val
+          else:
+            if isinstance(user_attributes[param], str):
+              user_attributes[param] = [user_attributes[param]]
+            user_attributes[param].append(val)
+
+      with open('out.txt', 'a') as f:
+        f.write("\n\nResult of fetch_hardcoded_user_details task:\n")
+        f.write(json.dumps(user_attributes, indent=4))

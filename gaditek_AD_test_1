@@ -47,7 +47,7 @@ tasks:
         - lastLogon
         - lastLogoff
         - sAMAccountName
-        - userPrincipalName
+        - userPrincipalName 
         - mail
         - displayName
         - distinguishedName
@@ -62,6 +62,7 @@ tasks:
         - logonCount
         - badPwdCount
         - badPasswordTime
+        - objectClass
 
 
   - id: save
@@ -70,12 +71,39 @@ tasks:
       - "out.txt"
     script: |
       import os
+      from collections import defaultdict
+      import json
 
       print("Reading")
       with open('{{ outputs.fetch_users_details.uri }}', 'r') as f:
-        fetch_data = f.read()
+        fetch_data = f.read().strip().split("\n\n")
+
+      users = []
+      for user in fetch_data:
+        user_attributes = defaultdict(list)
+        lines = user.split("\n")
+        for line in lines:
+          param_end_index = line.index(":")
+          param = line[:param_end_index].strip()
+          val = line[param_end_index + 1:].strip()
+
+          if param not in user_attributes:
+            user_attributes[param] = val
+          else:
+            if isinstance(user_attributes[param], str):
+              user_attributes[param] = [user_attributes[param]]
+            user_attributes[param].append(val)
+            
+        users.append(user_attributes)
+
+      most_attrs_user = None
+      most_attrs = float("-inf")
+      for user in users:
+        if len(user) > most_attrs:
+          most_attrs = len(user)
+          most_attrs_user = user
         
       print("Writing")
       with open("out.txt", "w") as f:
-        f.write("Fetched information from AD:\n")
-        f.write(fetch_data)
+        f.write(f"Most attributes user: {most_attrs_user} with {most_attrs} attributes\n")
+        f.write(json.dump(users, indent=2))
