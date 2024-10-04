@@ -1,0 +1,23 @@
+id: nmap_scan_test0
+namespace: foo
+tasks:
+  - id: nmap_scan_task
+    type: io.kestra.plugin.kubernetes.PodCreate
+    namespace: foo
+    metadata:
+      labels:
+        my-label: nmap-scan
+    spec:
+      containers:
+        - name: nmap
+          # image: docker.io/securecodebox/scanner-nmap:latest  # Ensure this image is accessible
+          image: securecodebox/nmap:latest
+          
+          command:
+            - 'nmap'
+            - '-sV'                      # Service version detection
+            # - '-Pn'                      # Skip host discovery
+            - '3.123.143.202'          # Example target IP range; modify as needed
+
+      restartPolicy: Never
+      # Optionally specify other properties based on requirements

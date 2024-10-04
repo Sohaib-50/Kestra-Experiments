@@ -11,8 +11,11 @@ triggers:
 
 tasks:
 
-
-  - id: save
+  - id: debug_out
+    type: io.kestra.plugin.core.log.Log
+    message: "Username: {{ trigger.body.username }}"
+    
+  - id: fetch_user_details
     type: io.kestra.plugin.scripts.python.Script
     outputFiles:
       - "out.txt"
@@ -24,53 +27,58 @@ tasks:
       import json
       from ldap3 import Server, Connection, ALL, SUBTREE
 
-      # LDAP server and connection details
-      ldap_server = '3.123.143.202'
-      username = 'your_username'  # Replace with the username to search for
-      password = '{{ vars.password }}'    # Replace with the actual password
-      base_dn = 'dc=test,dc=local'
+      # LDAP creds
+      host = '3.123.143.202' 
+      port = 636
+      user_dn = 'cn=contractor,ou=IT-Admins,dc=atomsqa,dc=com'
+      base_dn = 'dc=atomsqa,dc=com'
+      password = '{{ vars.password }}'
 
-      # Create the server and connection
-      server = Server(ldap_server, get_info=ALL)
-      conn = Connection(server, user='cn=Administrator,cn=Users,dc=test,dc=local', password=password)
+      server = Server(host=host, port=port, get_info=ALL, use_ssl=True)
+      conn = Connection(server, user=user_dn, password=password, auto_bind=False)
 
-      # Bind the connection
       if not conn.bind():
           print(f"Failed to bind to the server: {conn.last_error}")
-      else:
-          search_filter = f"(&(objectClass=user)(sAMAccountName={{trigger.body.username}}))"
-          
-          # Attributes to retrieve
-          attributes = [
-              'cn', 'description', 'lastLogon', 'lastLogoff',
-              'sAMAccountName', 'userPrincipalName', 'mail', 'displayName',
-              'distinguishedName', 'accountExpires', 'enabled', 'memberOf',
-              'whenCreated', 'title', 'department', 'objectSid', 'objectGUID',
-              'logonCount', 'badPwdCount', 'badPasswordTime', 'objectClass'
-          ]
-          
-          # Perform the search
-          conn.search(base_dn, search_filter, SUBTREE, attributes=attributes)
+          exit(1)
 
-          result = {}
-          for entry in conn.entries:
-              entry_dict = {}
-              for key, value in entry.entry_attributes.items():
-                  entry_dict[key] = value
-              result[entry.entry_dn] = entry_dict
-          
-          # # Prepare the output
-          # result = ""
-          # for entry in conn.entries:
-          #     for attr in entry.entry_attributes:
-          #         result += f"{attr}: {entry[attr]}\n"
-          #     result += "\n"  # Separate entries by a blank line
+      search_filter = f"(&(objectClass=user)(sAMAccountName={{trigger.body.username}}))"
+      attributes = [
+          'cn', 'description', 'lastLogon', 'lastLogoff', 'organizationalUnitName',
+          'sAMAccountName', 'userPrincipalName', 'mail', 'displayName',
+          'distinguishedName', 'accountExpires', 'enabled', 'memberOf',
+          'whenCreated', 'title', 'department', 'objectSid', 'objectGUID',
+          'logonCount', 'badPwdCount', 'badPasswordTime', 'objectClass'
+      ]
+      conn.search(base_dn, search_filter, SUBTREE, attributes=attributes)
 
-          # Unbind the connection
-          conn.unbind()
+      # parse
+      print(f"{len(conn.entries)} entries found")
+      result = {}
+      for entry in conn.entries:
+          entry_dict = {}
+          for attr in attributes:
+            val = entry[attr]
+            if not val:
+              val = ""
+            val = str(val)
+            entry_dict[attr] = val
+            print(attr, val, type(val))
 
-    
+          result[entry.entry_dn] = entry_dict
+
+      conn.unbind()
+
       with open('out.txt', 'a') as f:
         f.write(str(json.dumps(result, indent=4)))
-      #   f.write("\n\nResult of fetch_hardcoded_user_details task:\n")
-      #   f.write(json.dumps(user_attributes, indent=4))
+
+  # - id: send_to_camunda
+  #   type: io.kestra.plugin.core.http.Request
+  #   uri: "{{ vars.webhook_url }}"
+  #   method: POST
+  #   headers:
+  #     Content-Type: application/json
+  #   body: '{"id":1, "action": "open", "data":"this is my arsalanss", "level":4}'
+
+
+#  curl -X POST -H "Content-Type: application/json" -d '{"username": "contractor-ldap"}' http://ec2-54-163-138-108.compute-1.amazonaws.com:8080/api/v1/executions/webhook/foo/get_Gaditek_AD_user_2/key0
+

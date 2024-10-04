@@ -1,0 +1,28 @@
+id: nmap_scan_test1
+namespace: foo
+tasks:
+  - id: nmap_scan_task
+    type: io.kestra.plugin.scripts.python.Script
+    beforeCommands:
+      - apk add --no-cache nmap > /dev/null
+      - apk add nmap-scripts > /dev/null
+      - pip install python-nmap kestra > /dev/null
+    outputFiles:
+      - "out.txt"
+    script: |
+      import nmap
+      import json
+      import os
+
+      nm = nmap.PortScanner()
+      nm.scan('3.123.143.202')
+      print("Hosts:")
+      print(nm.all_hosts())
+      print("\nScan Info:")
+      print(nm.scaninfo())
+
+      with open('out.txt', 'w') as f:
+          f.write("Hosts:\n")
+          f.write(json.dumps(nm.all_hosts()))
+          f.write("\n\nScan Info:\n")
+          f.write(json.dumps(nm.scaninfo()))

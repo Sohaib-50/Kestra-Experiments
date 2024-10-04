@@ -1,0 +1,41 @@
+id: nmap_scan_test2
+namespace: foo
+tasks:
+  - id: nmap_scan_task
+    type: io.kestra.plugin.scripts.python.Script
+    beforeCommands:
+      - apk add --no-cache nmap > /dev/null
+      - apk add nmap-scripts > /dev/null
+      - pip install python-nmap kestra > /dev/null
+    outputFiles:
+      - "out.txt"
+    script: |
+      import nmap
+
+      nm = nmap.PortScanner()
+      nm.scan('3.123.143.202', arguments='-sV')
+
+      output_lines = []
+      output_lines.append("Hosts: " + str(nm.all_hosts()))
+      output_lines.append("Scan Info: " + str(nm.scaninfo()))
+      output_lines.append("Open Ports and Services:")
+
+      # Iterate over all protocols (e.g., tcp)
+      for proto in nm['3.123.143.202'].all_protocols():
+          output_lines.append(f"\nProtocol: {proto}")
+          # Get the dictionary of all ports for the current protocol
+          ports = nm['3.123.143.202'][proto]
+          
+          # Iterate over each port in the protocol
+          for port in ports.keys():
+              service = ports[port]
+              output_lines.append(
+                  f"Port: {port}, State: {service['state']}, "
+                  f"Service: {service['name']}, Version: {service.get('version', 'unknown')}"
+              )
+
+      # Write the output to out.txt
+      with open('out.txt', 'w') as f:
+          f.write('\n'.join(output_lines))
+
+      print("Scan results written to out.txt")
