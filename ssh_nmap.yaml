@@ -1,0 +1,51 @@
+id: ssh_nmap
+namespace: foo
+
+variables:
+  ssh_key: |
+    <redacted>
+
+tasks:
+  - id: nmap_runs
+    type: io.kestra.plugin.core.flow.Parallel
+    tasks:
+
+      - id: local_nmap
+        type: io.kestra.plugin.fs.ssh.Command
+        host: ec2-54-235-235-21.compute-1.amazonaws.com
+        port: "22"
+        authMethod: PUBLIC_KEY
+        username: ubuntu
+        privateKey: "{{ vars.ssh_key }}"
+        commands:
+          # - echo "-> Executing local nmap network sweep scan"
+          # - network_ip=$(ip addr show | awk '/inet / && !/127.0.0.1/ {print $2}' | head -n 1)
+          # - sudo nmap -sn "$network_ip"
+          # - echo "\n\n\n-> Executing local nmap asset details scan for `172.31.90.25`"
+          - nmap -O -sV 172.31.95.68
+
+      - id: docker_nmap
+        type: io.kestra.plugin.fs.ssh.Command
+        host: ec2-54-235-235-21.compute-1.amazonaws.com
+        port: "22"
+        authMethod: PUBLIC_KEY
+        username: ubuntu
+        privateKey: "{{ vars.ssh_key }}"
+        commands:
+          # - echo "-> Executing docker nmap network sweep scan"
+          # - network_ip=$(ip addr show | awk '/inet / && !/127.0.0.1/ {print $2}' | head -n 1)
+          # - docker run --rm instrumentisto/nmap -sn "$network_ip"
+          # - echo "\n\n\n-> Executing docker nmap asset details scan for `172.31.90.25`"
+          - docker run --rm instrumentisto/nmap -A 172.31.95.68
+
+  - id: debug_out
+    type: io.kestra.plugin.core.log.Log
+    message: 
+      - "local_nmap outputs: {{ outputs.local_nmap }}"
+      - "docker_nmap outputs: {{ outputs.docker_nmap }}"
+      - "Bye"
+          
+
+
+
+

@@ -1,0 +1,50 @@
+id: network_asset_details_discovery
+namespace: foo
+description: |
+  Gets details of a network device using `nmap` and stores to postgres.
+  The device IP and SSH key are provided via nats.  
+  
+  # TODO: allow username password auth, and don't send key over nats
+
+
+# triggers:
+#   - id: nats_trigger
+#     type: io.kestra.plugin.nats.RealtimeTrigger
+#     url: ec2-54-163-138-108.compute-1.amazonaws.com:4222
+#     username: kestra
+#     password: k3stra
+#     subject: '*.asset.fetch_request.network_asset.*.network'
+#     durableId: network_asset_details_discovery_trigger
+#     deliverPolicy: All
+
+variables:
+  ssh_key: |
+    <redacted>
+
+tasks:
+
+  - id: debug_out
+    type: io.kestra.plugin.core.log.Log
+    message:
+      - "Asset IP: {{ json(trigger.data).payload.asset_ip }}
+      - "SSH Key: {{ json(trigger.data).payload.ssh_key }}"
+    
+  - id: docker_nmap
+    type: io.kestra.plugin.fs.ssh.Command
+    host: ec2-54-235-235-21.compute-1.amazonaws.com
+    port: "22"
+    authMethod: PUBLIC_KEY
+    username: ubuntu
+    privateKey: "{{ json(trigger.data).payload.ssh_key }}"
+    commands:
+      # - echo "-> Executing docker nmap network sweep scan"
+      # - network_ip=$(ip addr show | awk '/inet / && !/127.0.0.1/ {print $2}' | head -n 1)
+      # - docker run --rm instrumentisto/nmap -sn "$network_ip"
+      # - echo "\n\n\n-> Executing docker nmap asset details scan for `172.31.90.25`"
+      # - docker run --rm instrumentisto/nmap -A 172.31.95.68
+      - docker run --rm instrumentisto -O -sV {{ json(trigger.data).payload.asset_ip }}
+          
+
+
+
+

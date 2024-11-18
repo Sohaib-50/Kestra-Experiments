@@ -57,9 +57,36 @@ services:
             tmp-dir:
               path: /tmp/kestra-wd/tmp
           url: http://localhost:8080/
+        micronaut:
+          security:
+            defaultRole:
+              name: Editor
+              description: Default Editor role 
+              permissions:
+                FLOW: ["CREATE", "READ", "UPDATE", "DELETE"]
+                EXECUTION:
+                  - CREATE
+                  - READ
+                  - UPDATE
+                  - DELETE
+            oauth2:
+              enabled: true
+              clients:
+                keycloak:
+                  client-id: "kestra"
+                  client-secret: "yEgVsMpZsCnEtfSEJQ8PgnfR6fDKQJd6"
+                  openid:
+                    issuer: "http://localhost:9090/auth/realms/myrealm"
+            endpoints:
+              logout:
+                get-allowed: true  
     ports:
       - "8080:8080"
       - "8081:8081"
     depends_on:
       postgres:
         condition: service_started
+
+
+
+
